@@ -10,46 +10,37 @@ open Siren
 
 type Agent<'T> = MailboxProcessor<'T>
 type RequestInfo = HttpContext
+type DisarmResult = Disarmed of SirenDocument | Explosion of SirenDocument
 type ResponseInfo =
-      | Success of SirenDocument
-      | Failure
+      | Valid of DisarmResult
+      | Invalid
 
 type Message = RequestInfo * AsyncReplyChannel<WebPart>
 
-let attemptDisarm (ctx : HttpContext) : ResponseInfo =  
-
-  let fieldData = 
-    match (ctx.request.formData "name", ctx.request.formData "type", ctx.request.formData "value") with
-    | Choice1Of2 name, Choice1Of2 "text", Choice1Of2 value -> Some (name, value)
-    | _ -> None
-
-  match fieldData with
-  | None ->
-    let selfLink = { rel = [ "self" ]; href = "http://bomb" }
-
-    let doc = 
-      { properties = { title = "Bomb"; description = "Bad request, tbh" }
-        actions = []
-        links = [ selfLink ] }
-    Failure  
-
-  | Some (wire, "red") ->
-    let selfLink = { rel = [ "self" ]; href = "http://bomb" }
-
-    let doc = 
+let cutWire ctx wireColor : DisarmResult =
+  match wireColor with
+  | "red" ->
+    Disarmed 
       { properties = { title = "Bomb"; description = "Successfully Disarmed!" }
         actions = []
-        links = [ selfLink ] }
-    Success doc  
-
-  | Some (wire, _) ->
-    let selfLink = { rel = [ "self" ]; href = "http://bomb" }
-
-    let doc = 
+        links = [ selfLinkTo "bomb" ] }
+  | _ ->
+    Explosion 
       { properties = { title = "Bomb"; description = "BOOM!" }
         actions = []
-        links = [ selfLink ] }
-    Success doc  
+        links = [ selfLinkTo "bomb" ] }
+
+let attemptDisarm (ctx : HttpContext) : ResponseInfo =  
+
+  let wireColor = 
+    match (ctx.request.formData "name", ctx.request.formData "type", ctx.request.formData "value") with
+    | Choice1Of2 name, Choice1Of2 "text", Choice1Of2 value -> Some value
+    | _ -> None
+
+  match wireColor with
+  | None ->
+    Invalid  
+  | Some color -> cutWire ctx color |> Valid
 
 let getArmed ctx = 
   let cutWireAction = 
@@ -79,6 +70,15 @@ let getDisarmed ctx =
       links = [] }
   doc
 
+let getExploded ctx = 
+  let doc = 
+    { properties = 
+        { title = "Bomb"
+          description = "The bomb has exploded. And I don't know why I'm even telling you this, because you are dead." }
+      actions = []
+      links = [] }
+  doc
+
 let agentRef = Agent<Message>.Start (fun inbox ->
 
   let rec armed() = async {
@@ -92,10 +92,16 @@ let agentRef = Agent<Message>.Start (fun inbox ->
         (armed, Successful.OK s)
       | HttpMethod.POST ->
         match attemptDisarm ctx with
-        | Success (x : SirenDocument) ->
-          let s = x |> Json.serialize |> Json.format
-          (disarmed, Successful.OK s)
-        | Failure ->
+        | Valid (res : DisarmResult) ->
+          BoobyTrappedRoomResource.agentRef.Post(BoobyTrappedRoomResource.DisarmNotification)
+          match res with
+          | Disarmed d ->
+            let s = d |> Json.serialize |> Json.format
+            (disarmed, Successful.OK s)
+          | Explosion e ->
+            let s = e |> Json.serialize |> Json.format
+            (exploded, Successful.OK s)
+        | Invalid ->
           (armed, RequestErrors.BAD_REQUEST "no")
       | _ -> 
         (armed, RequestErrors.METHOD_NOT_ALLOWED "no")
@@ -116,6 +122,21 @@ let agentRef = Agent<Message>.Start (fun inbox ->
         (disarmed, RequestErrors.METHOD_NOT_ALLOWED "no")
     webPart |> replyChannel.Reply
     return! state()        
+    }
+
+  and exploded() = async {
+    let! msg = inbox.Receive()
+    let (ctx, replyChannel) = msg  
+
+    let (state, webPart) = 
+      match ctx.request.``method`` with
+      | HttpMethod.GET -> 
+        let s = getExploded ctx |> Json.serialize |> Json.format
+        (disarmed, Successful.OK s)
+      | _ -> 
+        (disarmed, RequestErrors.METHOD_NOT_ALLOWED "no")
+    webPart |> replyChannel.Reply
+    return! state()          
   }
 
   armed()

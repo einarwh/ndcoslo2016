@@ -2,6 +2,8 @@
 
 open Chiron
 
+open Utils
+
 type SirenLinkRel = string
 type SirenHref = string
 
@@ -59,3 +61,7 @@ type SirenDocument =
     do! Json.write "actions" x.actions
     do! Json.write "links" x.links
   }
+
+let sirenLinkTo relations relativeUrl = { rel = relations; href = linkTo relativeUrl }
+
+let selfLinkTo relativeUrl = sirenLinkTo [ "self" ] relativeUrl

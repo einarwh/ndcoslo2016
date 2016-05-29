@@ -58,6 +58,21 @@ let altBombPart : WebPart =
       return! result ctx
     }    
 
+let trapEntrancePart : WebPart =
+  fun (ctx : HttpContext) ->
+    let acceptHeader = ctx.request.header "Accept"
+    let hmm = 
+      match acceptHeader with
+        | Choice1Of2 a ->
+          let comment = if a.Contains("html") then "oooh html" else "something else"
+          comment
+        | Choice2Of2 b -> b
+    System.Console.WriteLine(hmm)
+    async {
+      let! result = BoobyTrappedRoomResource.agentRef.PostAndAsyncReply(fun ch -> BoobyTrappedRoomResource.WebMessage (ctx, ch))
+      return! result ctx
+    }    
+
 let app =
   choose [ 
     path "/void" >=> 
@@ -84,11 +99,10 @@ let app =
             >=> altBombPart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ]
-    path "/hello" >=> 
+    path "/room" >=> 
       choose [ 
         GET >=> Writers.setMimeType "application/vnd.siren+json" 
-            >=> bing
-        POST >=> (" { \"key\": \"Hello!! POST\" } " |> OK)
+            >=> trapEntrancePart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ] 
     path "/goodbye" >=> 
