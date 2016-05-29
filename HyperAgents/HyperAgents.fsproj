@@ -49,6 +49,7 @@
   <ItemGroup>
     <Compile Include="Siren.fs" />
     <Compile Include="VoidResource.fs" />
+    <Compile Include="BombResource.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
   </ItemGroup>
