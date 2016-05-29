@@ -47,6 +47,8 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Siren.fs" />
+    <Compile Include="VoidResource.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
   </ItemGroup>
