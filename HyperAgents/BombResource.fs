@@ -1,4 +1,4 @@
-﻿module AltBombResource
+﻿module BombResource
 
 open Suave
 open Suave.Filters
