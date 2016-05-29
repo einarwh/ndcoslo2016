@@ -6,13 +6,6 @@ open Suave.Successful
 open Siren
 open VoidResource
 
-let bing: WebPart =
-  fun (x : HttpContext) ->
-    async {
-      let! result = VoidResource.agentRef.PostAndAsyncReply(fun ch -> (x, ch))
-      return! result x
-    }
-
 let voidPart : WebPart =
   fun (ctx : HttpContext) ->
     let acceptHeader = ctx.request.header "Accept"
@@ -43,7 +36,7 @@ let bombPart : WebPart =
       return! result ctx
     }    
 
-let altBombPart : WebPart =
+let startroomPart : WebPart =
   fun (ctx : HttpContext) ->
     let acceptHeader = ctx.request.header "Accept"
     let hmm = 
@@ -54,9 +47,10 @@ let altBombPart : WebPart =
         | Choice2Of2 b -> b
     System.Console.WriteLine(hmm)
     async {
-      let! result = AltBombResource.agentRef.PostAndAsyncReply(fun ch -> (ctx, ch))
+      let! result = StartRoomResource.agentRef.PostAndAsyncReply(fun ch -> (ctx, ch))
       return! result ctx
     }    
+
 
 let trapEntrancePart : WebPart =
   fun (ctx : HttpContext) ->
@@ -91,14 +85,12 @@ let app =
             >=> bombPart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ]
-    path "/altbomb" >=>
-      choose [
-        GET >=> Writers.setMimeType "application/vnd.siren+json"
-            >=> altBombPart
-        POST >=> Writers.setMimeType "application/vnd.siren+json"
-            >=> altBombPart
+    path "/startroom" >=> 
+      choose [ 
+        GET >=> Writers.setMimeType "application/vnd.siren+json" 
+            >=> startroomPart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
-      ]
+      ] 
     path "/room" >=> 
       choose [ 
         GET >=> Writers.setMimeType "application/vnd.siren+json" 
