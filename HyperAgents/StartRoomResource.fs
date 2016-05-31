@@ -37,7 +37,7 @@ let get ctx =
   
   doc
 
-let agentRef = Agent<Message>.Start (fun inbox ->
+let rec agentRef = Agent<Message>.Start (fun inbox ->
   let rec loop() = async {
     let! msg = inbox.Receive()
     let (ctx, replyChannel) = msg
@@ -51,6 +51,7 @@ let agentRef = Agent<Message>.Start (fun inbox ->
         RequestErrors.METHOD_NOT_ALLOWED "no"
 
     webPart |> replyChannel.Reply
+
     return! loop()
   }
   loop()

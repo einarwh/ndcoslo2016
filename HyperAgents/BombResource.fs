@@ -6,6 +6,7 @@ open Suave.Operators
 open Suave.Successful
 
 open Chiron
+open Utils
 open Siren
 
 type Agent<'T> = MailboxProcessor<'T>
@@ -18,6 +19,7 @@ type ResponseInfo =
 type Message = RequestInfo * AsyncReplyChannel<WebPart>
 
 let cutWire ctx wireColor : DisarmResult =
+  System.Console.WriteLine("cutWire -> " + wireColor)
   match wireColor with
   | "red" ->
     Disarmed 
@@ -31,34 +33,25 @@ let cutWire ctx wireColor : DisarmResult =
         links = [ selfLinkTo "bomb" ] }
 
 let attemptDisarm (ctx : HttpContext) : ResponseInfo =  
-
-  let wireColor = 
-    match (ctx.request.formData "name", ctx.request.formData "type", ctx.request.formData "value") with
-    | Choice1Of2 name, Choice1Of2 "text", Choice1Of2 value -> Some value
-    | _ -> None
-
-  match wireColor with
-  | None ->
-    Invalid  
-  | Some color -> cutWire ctx color |> Valid
+  System.Console.WriteLine("attemptDisarm")
+  match ctx.request.formData "wire" with
+  | Choice1Of2 color -> cutWire ctx color |> Valid
+  | Choice2Of2 x -> Invalid
 
 let getArmed ctx = 
+  let cutWireField = { name = "wire"; ``type`` = "text"; value = None }
   let cutWireAction = 
-    { name = "cut-red-wire"
+    { name = "cut-wire"
       ``method`` = "POST"
       title = "Cut wire"
-      href = "http://bomb"
-      fields = [] }
-  let cutRedWireAction =
-    { cutWireAction with name = "cut-red-wire"; title = "Cut the red wire"; fields = [ { name = "wire"; ``type`` = "text"; value = Some (String "red") } ]} 
-  let cutBlueWireAction =
-    { cutWireAction with name = "cut-blue-wire"; title = "Cut the blue wire"; fields = [ { name = "wire"; ``type`` = "text"; value = Some (String "blue") } ]} 
+      href = linkTo "bomb"
+      fields = [ cutWireField ] }
   let doc = 
     { properties = 
         { title = "Bomb"
           description = "You have encountered a Die Hard-style scary bomb. There is some sort of liquid flowing in a container. You see a red and a blue wire." }
-      actions = [ cutRedWireAction; cutBlueWireAction ]
-      links = [] }
+      actions = [ cutWireAction ]
+      links = [ selfLinkTo "bomb" ] }
   doc
 
 let getDisarmed ctx = 
@@ -99,7 +92,7 @@ let agentRef = Agent<Message>.Start (fun inbox ->
             let s = d |> Json.serialize |> Json.format
             (disarmed, Successful.OK s)
           | Explosion e ->
-            let s = e |> Json.serialize |> Json.format
+            let s = e |> Json.serialize |>  Json.format
             (exploded, Successful.OK s)
         | Invalid ->
           (armed, RequestErrors.BAD_REQUEST "no")

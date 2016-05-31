@@ -36,6 +36,21 @@ let bombPart : WebPart =
       return! result ctx
     }    
 
+let startPart : WebPart =
+  fun (ctx : HttpContext) ->
+    let acceptHeader = ctx.request.header "Accept"
+    let hmm = 
+      match acceptHeader with
+        | Choice1Of2 a ->
+          let comment = if a.Contains("html") then "oooh html" else "something else"
+          comment
+        | Choice2Of2 b -> b
+    System.Console.WriteLine(hmm)
+    async {
+      let! result = StartResource.agentRef.PostAndAsyncReply(fun ch -> (ctx, ch))
+      return! result ctx
+    }    
+
 let startroomPart : WebPart =
   fun (ctx : HttpContext) ->
     let acceptHeader = ctx.request.header "Accept"
@@ -51,6 +66,20 @@ let startroomPart : WebPart =
       return! result ctx
     }    
 
+let filesRoomPart : WebPart =
+  fun (ctx : HttpContext) ->
+    let acceptHeader = ctx.request.header "Accept"
+    let hmm = 
+      match acceptHeader with
+        | Choice1Of2 a ->
+          let comment = if a.Contains("html") then "oooh html" else "something else"
+          comment
+        | Choice2Of2 b -> b
+    System.Console.WriteLine(hmm)
+    async {
+      let! result = FilesRoomResource.agentRef.PostAndAsyncReply(fun ch -> FilesRoomResource.WebMessage (ctx, ch))
+      return! result ctx
+    }    
 
 let trapEntrancePart : WebPart =
   fun (ctx : HttpContext) ->
@@ -85,10 +114,24 @@ let app =
             >=> bombPart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ]
+    path "/start" >=> 
+      choose [ 
+        GET >=> Writers.setMimeType "application/vnd.siren+json" 
+            >=> startPart
+        POST >=> Writers.setMimeType "application/vnd.siren+json" 
+            >=> startPart
+        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+      ] 
     path "/startroom" >=> 
       choose [ 
         GET >=> Writers.setMimeType "application/vnd.siren+json" 
             >=> startroomPart
+        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+      ] 
+    path "/files-room" >=> 
+      choose [ 
+        GET >=> Writers.setMimeType "application/vnd.siren+json" 
+            >=> filesRoomPart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ] 
     path "/room" >=> 

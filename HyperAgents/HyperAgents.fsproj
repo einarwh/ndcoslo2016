@@ -50,10 +50,13 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Siren.fs" />
     <Compile Include="HttpUtils.fs" />
+    <Compile Include="StartResource.fs" />
     <Compile Include="VoidResource.fs" />
     <Compile Include="StartRoomResource.fs" />
+    <Compile Include="FilesRoom.fs" />
     <Compile Include="BoobyTrappedRoomResource.fs" />
     <Compile Include="BombResource.fs" />
+    <Compile Include="UploadResource.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
   </ItemGroup>
