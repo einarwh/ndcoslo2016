@@ -53,7 +53,9 @@
     <Compile Include="StartResource.fs" />
     <Compile Include="VoidResource.fs" />
     <Compile Include="StartRoomResource.fs" />
-    <Compile Include="FilesRoom.fs" />
+    <Compile Include="FilesRoomResource.fs" />
+    <Compile Include="TeleportRoomResource.fs" />
+    <Compile Include="ExitRoomResource.fs" />
     <Compile Include="BoobyTrappedRoomResource.fs" />
     <Compile Include="BombResource.fs" />
     <Compile Include="UploadResource.fs" />
