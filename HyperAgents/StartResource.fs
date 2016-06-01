@@ -16,8 +16,10 @@ type ResponseInfo =
       | Failure
 
 type Message = RequestInfo * AsyncReplyChannel<WebPart>
+type Url = string
+type Color = string
 
-type StartPlayerResult = StartedWhite of string | StartedBlack of string | FailedToStart
+type StartPlayerResult = Started of Url * Color | FailedToStart
 
 let getStartPlayerActions includeBlack includeWhite =
   let agentField = { name = "agent"; ``type`` = "text"; value = None }
@@ -42,16 +44,13 @@ let get ctx includeBlack includeWhite =
 
 let r = new System.Random()
 
-let getRandomStartLocation =
-  let locations = [ "teleporter-room"; "exit-room"; "files-room"; "boring-room" ]
+let getRandomStartLocation : Url =
+  let locations = [ "control-room"; "office"; "laboratory"; "teleport-room"; "exit-room" ]
   let roomIndex = r.Next(List.length locations)
   locations.Item roomIndex |> linkTo
 
-let start agent =
-  match agent with 
-  | "black" -> StartedBlack getRandomStartLocation
-  | "white" -> StartedWhite getRandomStartLocation
-  | _ -> FailedToStart
+let start (agent : Color) =
+  Started (getRandomStartLocation + "?agent=" + agent, agent)
 
 let startPlayer ctx =
   System.Console.WriteLine ("post /start")
@@ -61,7 +60,7 @@ let startPlayer ctx =
   | Choice2Of2 x -> FailedToStart
 
 let agentRef = Agent<Message>.Start (fun inbox ->
-  let rec none() = async {
+  let rec start() = async {
     let! msg = inbox.Receive()
     let (ctx, replyChannel) = msg
 
@@ -69,81 +68,18 @@ let agentRef = Agent<Message>.Start (fun inbox ->
       match ctx.request.``method`` with
       | HttpMethod.GET -> 
         let s = get ctx true true |> Json.serialize |> Json.format
-        (none, Successful.OK s)
+        (start, Successful.OK s)
       | HttpMethod.POST ->
         match startPlayer ctx with
-        | StartedBlack loc ->
-          (black, Redirection.FOUND loc)
-        | StartedWhite loc ->
-          (* Redirect to random start location. *)
-          (white, Redirection.FOUND loc)
+        | Started (loc, color) ->
+          AgentsResource.agentRef.Post(AgentsResource.Register(color, AgentResource.createAgent color))
+          (start, Redirection.FOUND loc)
         | FailedToStart ->
-          (none, RequestErrors.BAD_REQUEST "no")
+          (start, RequestErrors.BAD_REQUEST "no")
       | _ -> 
-        (none, RequestErrors.METHOD_NOT_ALLOWED "no")
+        (start, RequestErrors.METHOD_NOT_ALLOWED "no")
     webPart |> replyChannel.Reply
     return! state() }
 
-  and black() = async {
-    let! msg = inbox.Receive()
-    let (ctx, replyChannel) = msg
-
-    let (state, webPart) =
-      match ctx.request.``method`` with
-      | HttpMethod.GET -> 
-        let s = get ctx false true |> Json.serialize |> Json.format
-        (none, Successful.OK s)
-      | HttpMethod.POST ->
-        match startPlayer ctx with
-        | StartedBlack loc ->
-          (* Logic error! *)
-          (black, RequestErrors.CONFLICT "no")
-        | StartedWhite loc ->
-          (* Redirect to random start location. *)
-          (both, Redirection.FOUND loc)
-        | FailedToStart ->
-          (black, RequestErrors.BAD_REQUEST "no")
-      | _ -> 
-        (none, RequestErrors.METHOD_NOT_ALLOWED "no")
-    webPart |> replyChannel.Reply
-    return! state() }
-
-  and white() = async {
-    let! msg = inbox.Receive()
-    let (ctx, replyChannel) = msg
-
-    let (state, webPart) =
-      match ctx.request.``method`` with
-      | HttpMethod.GET -> 
-        let s = get ctx true false |> Json.serialize |> Json.format
-        (none, Successful.OK s)
-      | HttpMethod.POST ->
-        match startPlayer ctx with
-        | StartedBlack loc ->
-          (both, Redirection.FOUND loc)
-        | StartedWhite loc ->
-          (* Logic error! *)
-          (white, RequestErrors.CONFLICT "no")
-        | FailedToStart ->
-          (none, RequestErrors.BAD_REQUEST "no")
-      | _ -> 
-        (none, RequestErrors.METHOD_NOT_ALLOWED "no")
-    webPart |> replyChannel.Reply
-    return! state() }
-
-  and both() = async {
-    let! msg = inbox.Receive()
-    let (ctx, replyChannel) = msg
-
-    let (state, webPart) =
-      match ctx.request.``method`` with
-      | HttpMethod.GET -> 
-        let s = get ctx false false |> Json.serialize |> Json.format
-        (none, Successful.OK s)
-      | _ -> 
-        (none, RequestErrors.METHOD_NOT_ALLOWED "no")
-    webPart |> replyChannel.Reply
-    return! state() }
-
-  none()
+  start()
 )

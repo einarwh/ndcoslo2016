@@ -1,4 +1,4 @@
-﻿module FilesRoomResource
+﻿module ControlRoomResource
 
 open Suave
 open Suave.Filters
@@ -20,12 +20,18 @@ type Message = WebMessage of RequestInfo * AsyncReplyChannel<WebPart> | DisarmNo
 type TrappedResult = SafeEntry of SirenDocument | TriggeredBomb of string
 
 let getRoom ctx = 
+  let qp = ctx.request.rawQuery
+  System.Console.WriteLine(qp)
   let doc = 
     { properties = 
-        { title = "The Files Room."
-          description = "You're in a room. It might not seem like much, but it's something." }
+        { title = "The Control Room."
+          description = "You're in the control room." }
       actions = []
-      links = [] }
+      links = 
+        [ selfLinkTo "control-room" 
+          sirenLinkTo ["entrance"; "move"] "office" 
+          sirenLinkTo ["entrance"; "move"] "laboratory" 
+          sirenLinkTo ["entrance"; "move"] "exit-room" ] }
   doc
 
 let getTrapped (ctx : HttpContext) = 

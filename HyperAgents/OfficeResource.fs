@@ -1,4 +1,4 @@
-﻿module TeleportRoomResource
+﻿module OfficeResource
 
 open Suave
 open Suave.Filters
@@ -10,6 +10,7 @@ open Chiron
 open Utils
 open Siren
 
+type Agent<'T> = MailboxProcessor<'T>
 type RequestInfo = HttpContext
 type ResponseInfo =
       | Success of SirenDocument
@@ -19,40 +20,17 @@ type Message = WebMessage of RequestInfo * AsyncReplyChannel<WebPart> | DisarmNo
 type TrappedResult = SafeEntry of SirenDocument | TriggeredBomb of string
 
 let getRoom ctx = 
-  let qp url = url + "?" + ctx.request.rawQuery 
-  let links = 
-    [ "teleport-room" |> qp |> selfLinkTo
-      "laboratory" |> qp |> sirenLinkTo ["entrance"; "move"]
-      "exit-room" |> qp |> sirenLinkTo ["teleport"; "move"] ] 
-  let trappableLinks = 
-    links |> List.filter (fun { rel = relations; href = lnk } -> relations |> List.exists (fun r -> r = "entrance"))
-  let plantBombAction = 
-    { name = "plant-bomb"
-      title = "Plant bomb"
-      ``method`` = "POST"
-      href = ctx.request.url.ToString()
-      fields = []
-    }
-  let pickResourceName (url : string) = 
-    url.Split('?') |> Seq.head |> (fun s -> s.Split('/')) |> Seq.last
-
-  let plantBombActions =
-    trappableLinks 
-    |> List.map (fun sl -> sl.href)
-    |> List.mapi (fun i lnk -> 
-      let srcResource = pickResourceName lnk 
-      let dstResource = pickResourceName (ctx.request.url.ToString())
-      { plantBombAction with name = sprintf "%s-%d" plantBombAction.name i
-                             title = sprintf "Place bomb on entrance %s => %s" srcResource dstResource  
-                             fields = [ { name = "bomb-referrer"; ``type`` = "text"; value = Some (String lnk)} ]})
-
-  System.Console.WriteLine(trappableLinks |> List.map (fun sl -> sl.href))
+  let qp = ctx.request.rawQuery
+  System.Console.WriteLine(qp)
   let doc = 
     { properties = 
-        { title = "The Teleportation Room."
-          description = "You're in the teleportation room. There's a teleport here." }
-      actions = plantBombActions
-      links = links }
+        { title = "The Office."
+          description = "You're in an office." }
+      actions = []
+      links = 
+        [ selfLinkTo "office" 
+          sirenLinkTo ["entrance"; "move"] "laboratory" 
+          sirenLinkTo ["entrance"; "move"] "control-room" ] }
   doc
 
 let getTrapped (ctx : HttpContext) = 
@@ -71,6 +49,7 @@ let agentRef = Agent<Message>.Start (fun inbox ->
       System.Console.WriteLine("disarmed!!!")
       return! cleared()
     | WebMessage (ctx, replyChannel) ->
+      System.Console.WriteLine(ctx.request.rawQuery)
       let webPart =
         match ctx.request.``method`` with
         | HttpMethod.GET -> 
