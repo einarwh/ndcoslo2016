@@ -22,21 +22,19 @@ type Message =
   | Lookup of AgentColor * AsyncReplyChannel<Agent<AgentResource.Message> option>
   | Register of AgentColor * Agent<AgentResource.Message>
 
-let mutable registeredAgents : Map<AgentColor, Agent<AgentResource.Message>> = Map.empty
-
 let agentRef = Agent<Message>.Start (fun inbox ->
-  let rec loop() = async {
+  let rec loop (agents : Map<AgentColor, Agent<AgentResource.Message>>) = async {
     System.Console.WriteLine("AgentsResource got a message")
     let! msg = inbox.Receive()
     match msg with 
     | Lookup (agentColor, replyChannel) ->
       System.Console.WriteLine("Do lookup " + agentColor)
-      registeredAgents |> Map.toSeq |> printfn "%A"
-      registeredAgents.TryFind agentColor |> replyChannel.Reply
+      agents |> Map.toSeq |> printfn "%A"
+      agents.TryFind agentColor |> replyChannel.Reply
+      return! loop agents
     | Register (agentColor, agent) ->
       System.Console.WriteLine("Do register " + agentColor)
-      registeredAgents <- registeredAgents.Add(agentColor, agent)
-    return! loop()
+      return! loop <| agents.Add(agentColor, agent)
   }
-  loop()
+  loop Map.empty
 )

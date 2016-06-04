@@ -51,6 +51,9 @@
     <Compile Include="Siren.fs" />
     <Compile Include="HttpUtils.fs" />
     <Compile Include="VoidResource.fs" />
+    <Compile Include="BombResource.fs" />
+    <Compile Include="BombsResource.fs" />
+    <Compile Include="RoomResourceUtils.fs" />
     <Compile Include="StartRoomResource.fs" />
     <Compile Include="LaboratoryResource.fs" />
     <Compile Include="OfficeResource.fs" />
@@ -61,7 +64,7 @@
     <Compile Include="AgentsResource.fs" />
     <Compile Include="StartResource.fs" />
     <Compile Include="BoobyTrappedRoomResource.fs" />
-    <Compile Include="BombResource.fs" />
+    <Compile Include="OldBombResource.fs" />
     <Compile Include="UploadResource.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />

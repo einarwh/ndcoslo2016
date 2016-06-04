@@ -1,136 +1,178 @@
 ﻿module BombResource
 
+open System
+
+open Chiron
+
 open Suave
 open Suave.Filters
 open Suave.Operators
 open Suave.Successful
 
-open Chiron
-open Utils
 open Siren
+open Utils
 
-type Agent<'T> = MailboxProcessor<'T>
-type RequestInfo = HttpContext
-type DisarmResult = Disarmed of SirenDocument | Explosion of SirenDocument
-type ResponseInfo =
-      | Valid of DisarmResult
+type Message =
+  | WebMessage of HttpContext * AsyncReplyChannel<WebPart>
+  | TriggerNotification
+  | AliveQuery of AsyncReplyChannel<bool>
+
+type CutWireResult = Disarmed of SirenDocument | Explosion of SirenDocument
+type DisarmAttemptResult =
+      | Valid of CutWireResult
       | Invalid
 
-type Message = RequestInfo * AsyncReplyChannel<WebPart>
+type BombInfo = 
+  { id : int
+    referrer : string
+    agent : Agent<Message>
+  }
 
-let cutWire ctx wireColor : DisarmResult =
+let getDisarmed (ctx : HttpContext) (target : string) : SirenDocument = 
+  let url = ctx.request.url
+  { properties = 
+      { title = "Disarmed bomb"
+        description = "You have successfully disarmed the bomb using your immensive skill!" }
+    actions = []
+    links = 
+      [ { rel = [ "self" ]; href = url.ToString() } 
+        { rel = [ "back" ]; href = target } ] }
+
+let getExplosion (ctx : HttpContext) (target : string) : SirenDocument = 
+  let url = ctx.request.url
+  { properties = 
+      { title = "Exploding bomb"
+        description = "*** BOOM ***" }
+    actions = []
+    links = 
+      [ { rel = [ "self" ]; href = url.ToString() } 
+        { rel = [ "back" ]; href = target } ] }
+
+let cutWire ctx target wireColor : CutWireResult =
   System.Console.WriteLine("cutWire -> " + wireColor)
   match wireColor with
   | "red" ->
-    Disarmed 
-      { properties = { title = "Bomb"; description = "Successfully Disarmed!" }
-        actions = []
-        links = [ selfLinkTo "bomb" ] }
+    getDisarmed ctx target |> Disarmed
   | _ ->
-    Explosion 
-      { properties = { title = "Bomb"; description = "BOOM!" }
-        actions = []
-        links = [ selfLinkTo "bomb" ] }
+    getExplosion ctx target |> Explosion 
 
-let attemptDisarm (ctx : HttpContext) : ResponseInfo =  
+let attemptDisarm (ctx : HttpContext) (target : string) : DisarmAttemptResult =  
   System.Console.WriteLine("attemptDisarm")
   match ctx.request.formData "wire" with
-  | Choice1Of2 color -> cutWire ctx color |> Valid
+  | Choice1Of2 color -> cutWire ctx target color |> Valid
   | Choice2Of2 x -> Invalid
 
-let getArmed ctx = 
+let getReady (ctx : HttpContext) = 
+  let links = 
+    match ctx.request.header "referer" with
+    | Choice1Of2 ref -> [ { rel = ["back"]; href = ref } ]
+    | Choice2Of2 _ -> []
+  let doc = 
+    { properties = { title = sprintf "A bomb. Hee hee."; description = "Your deviously set up bomb that is sure to catch the other agents by surprise." }
+      actions = []
+      links = links }
+  doc
+
+let getTriggered (ctx : HttpContext) = 
+  let url = ctx.request.url
   let cutWireField = { name = "wire"; ``type`` = "text"; value = None }
   let cutWireAction = 
     { name = "cut-wire"
       ``method`` = "POST"
       title = "Cut wire"
-      href = linkTo "bomb"
+      href = link2 url.AbsolutePath url.Query
       fields = [ cutWireField ] }
   let doc = 
     { properties = 
-        { title = "Bomb"
+        { title = sprintf "A bomb is ticking."; 
           description = "You have encountered a Die Hard-style scary bomb. There is some sort of liquid flowing in a container. You see a red and a blue wire." }
       actions = [ cutWireAction ]
-      links = [ selfLinkTo "bomb" ] }
-  doc
-
-let getDisarmed ctx = 
-  let doc = 
-    { properties = 
-        { title = "Bomb"
-          description = "The bomb has been disarmed. Yay you." }
-      actions = []
       links = [] }
   doc
 
-let getExploded ctx = 
-  let doc = 
-    { properties = 
-        { title = "Bomb"
-          description = "The bomb has exploded. And I don't know why I'm even telling you this, because you are dead." }
-      actions = []
-      links = [] }
-  doc
-
-let agentRef = Agent<Message>.Start (fun inbox ->
-
-  let rec armed() = async {
+let createAgent referrer target = 
+  System.Console.WriteLine("Create bomb agent")
+  Agent<Message>.Start (fun inbox ->
+  let rec ready() = async {
     let! msg = inbox.Receive()
-    let (ctx, replyChannel) = msg  
+    System.Console.WriteLine("bomb is ready")
+    match msg with
+    | AliveQuery replyChannel ->
+      true |> replyChannel.Reply
+      return! ready()
+    | TriggerNotification ->
+      return! triggered()
+    | WebMessage (ctx, replyChannel) ->
+      let webPart = 
+        match ctx.request.``method`` with
+        | HttpMethod.GET ->
+          let doc = getReady ctx
+          let s = doc |> Json.serialize |> Json.format 
+          Successful.OK s
+        | _ ->
+          RequestErrors.METHOD_NOT_ALLOWED "no"
+      webPart |> replyChannel.Reply
+      return! ready() }
 
-    let (state, webPart) = 
+  and triggered() = async {
+    let! msg = inbox.Receive()
+    printfn "bomb is triggered!!!"
+    match msg with
+    | AliveQuery replyChannel ->
+      false |> replyChannel.Reply
+      return! triggered()
+    | TriggerNotification ->
+      printfn "Multiple trigger!"
+      (* It's OK to trigger a bomb multiple times. *)
+      return! triggered()
+    | WebMessage (ctx, replyChannel) ->
+      printfn "web message for triggered bomb"
       match ctx.request.``method`` with
-      | HttpMethod.GET -> 
-        let s = getArmed ctx |> Json.serialize |> Json.format
-        (armed, Successful.OK s)
+      | HttpMethod.GET ->
+        let doc = getTriggered ctx
+        let s = doc |> Json.serialize |> Json.format 
+        Successful.OK s |> replyChannel.Reply
+        return! triggered()
       | HttpMethod.POST ->
-        match attemptDisarm ctx with
-        | Valid (res : DisarmResult) ->
-          BoobyTrappedRoomResource.agentRef.Post(BoobyTrappedRoomResource.DisarmNotification)
-          match res with
-          | Disarmed d ->
-            let s = d |> Json.serialize |> Json.format
-            (disarmed, Successful.OK s)
-          | Explosion e ->
-            let s = e |> Json.serialize |>  Json.format
-            (exploded, Successful.OK s)
+        printfn "this is an attempt at disarming the bomb."
+        match attemptDisarm ctx target with
         | Invalid ->
-          (armed, RequestErrors.BAD_REQUEST "no")
-      | _ -> 
-        (armed, RequestErrors.METHOD_NOT_ALLOWED "no")
-    webPart |> replyChannel.Reply
-    return! state()        
-    }
+          RequestErrors.BAD_REQUEST "no" |> replyChannel.Reply
+          return! triggered()
+        | Valid outcome ->
+          (* Notify: room to remove bomb. Maybe not? Just let room contain actual bomb agents, and ask for ready ones? Others are unimportant. *)
+          match outcome with 
+          | Disarmed doc ->
+            let s = doc |> Json.serialize |> Json.format
+            Successful.OK s |> replyChannel.Reply
+            return! gone()
+          | Explosion doc ->
+            (* Notify agent of death. *)
+            (* If agent has secret files when s/he dies: drop secret file -> happens in agent *)
+            let s = doc |> Json.serialize |> Json.format
+            Successful.OK s |> replyChannel.Reply
+            return! gone() 
+      | _ ->
+        RequestErrors.METHOD_NOT_ALLOWED "no" |> replyChannel.Reply
+        return! triggered() }
 
-  and disarmed() = async {
+  and gone() = async {
     let! msg = inbox.Receive()
-    let (ctx, replyChannel) = msg  
-
-    let (state, webPart) = 
+    printfn "bomb is gone!!!"
+    match msg with
+    | AliveQuery replyChannel ->
+      false |> replyChannel.Reply
+      return! gone()
+    | TriggerNotification ->
+      printfn "Logic error: triggered a bomb that is gone (disarmed or exploded)."
+      return! gone()
+    | WebMessage (ctx, replyChannel) ->
       match ctx.request.``method`` with
-      | HttpMethod.GET -> 
-        let s = getDisarmed ctx |> Json.serialize |> Json.format
-        (disarmed, Successful.OK s)
-      | _ -> 
-        (disarmed, RequestErrors.METHOD_NOT_ALLOWED "no")
-    webPart |> replyChannel.Reply
-    return! state()        
-    }
+      | HttpMethod.GET ->
+        RequestErrors.GONE "The bomb is gone" |> replyChannel.Reply
+      | _ ->
+        RequestErrors.METHOD_NOT_ALLOWED "no" |> replyChannel.Reply
+    return! gone() }
 
-  and exploded() = async {
-    let! msg = inbox.Receive()
-    let (ctx, replyChannel) = msg  
-
-    let (state, webPart) = 
-      match ctx.request.``method`` with
-      | HttpMethod.GET -> 
-        let s = getExploded ctx |> Json.serialize |> Json.format
-        (disarmed, Successful.OK s)
-      | _ -> 
-        (disarmed, RequestErrors.METHOD_NOT_ALLOWED "no")
-    webPart |> replyChannel.Reply
-    return! state()          
-  }
-
-  armed()
+  ready()
 )

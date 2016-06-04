@@ -1,5 +1,6 @@
 ﻿module StartResource
 
+open System
 open Suave
 open Suave.Filters
 open Suave.Operators
@@ -16,10 +17,9 @@ type ResponseInfo =
       | Failure
 
 type Message = RequestInfo * AsyncReplyChannel<WebPart>
-type Url = string
 type Color = string
 
-type StartPlayerResult = Started of Url * Color | FailedToStart
+type StartPlayerResult = Started of Uri * Color | FailedToStart
 
 let getStartPlayerActions includeBlack includeWhite =
   let agentField = { name = "agent"; ``type`` = "text"; value = None }
@@ -44,13 +44,15 @@ let get ctx includeBlack includeWhite =
 
 let r = new System.Random()
 
-let getRandomStartLocation : Url =
+let getRandomStartLocation : string =
   let locations = [ "control-room"; "office"; "laboratory"; "teleport-room"; "exit-room" ]
   let roomIndex = r.Next(List.length locations)
   locations.Item roomIndex |> linkTo
 
 let start (agent : Color) =
-  Started (getRandomStartLocation + "?agent=" + agent, agent)
+  let qs = sprintf "agent=%s" agent
+  let loc = getRandomStartLocation |> toUri |> withQueryString qs
+  Started (loc, agent)
 
 let startPlayer ctx =
   System.Console.WriteLine ("post /start")
@@ -72,8 +74,8 @@ let agentRef = Agent<Message>.Start (fun inbox ->
       | HttpMethod.POST ->
         match startPlayer ctx with
         | Started (loc, color) ->
-          AgentsResource.agentRef.Post(AgentsResource.Register(color, AgentResource.createAgent color))
-          (start, Redirection.FOUND loc)
+          AgentsResource.agentRef.Post(AgentsResource.Register(color, AgentResource.createAgent color loc))
+          (start, Redirection.FOUND <| loc.ToString())
         | FailedToStart ->
           (start, RequestErrors.BAD_REQUEST "no")
       | _ -> 
