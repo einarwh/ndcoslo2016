@@ -29,14 +29,14 @@ let getRoom (ctx : HttpContext) : SirenDocument =
   let doc = RoomResourceUtils.getRoomWithActions ctx.request props "office" linkInfos
   doc
 
-let getTrapped (bombs : BombInfo list) (ctx : HttpContext) : TrappedResult = 
+let getTrapped (bombs : BombInfo list) (ctx : HttpContext) (clr : AgentColor): TrappedResult = 
   match ctx.request.header "referer" with
   | Choice1Of2 ref ->
     match bombs |> List.tryFind (fun { id = id; referrer = referrer; agent = agent } -> ref.StartsWith(referrer)) with
     | None ->
       getRoom ctx |> SafeEntry
     | Some { id = id; referrer = referrer; agent = agent } ->
-      let bombResourceUrl = sprintf "http://localhost:8083/bombs/%d?agent=%s" id "black"
+      let bombResourceUrl = sprintf "http://localhost:8083/bombs/%d?agent=%s" id clr
       let bomb = bombResourceUrl |> toUri 
       TriggeredBomb (id, bombResourceUrl |> toUri)
   | _ ->
@@ -65,7 +65,7 @@ let agentRef = Agent<Message>.Start (fun inbox ->
                                            
       match ctx.request.``method`` with
       | HttpMethod.GET -> 
-        match getTrapped activeBombs ctx with
+        match getTrapped activeBombs ctx clr with
         | SafeEntry doc ->
           let s = doc |> Json.serialize |> Json.format
           Successful.OK s |> replyChannel.Reply
@@ -89,7 +89,7 @@ let agentRef = Agent<Message>.Start (fun inbox ->
           let! bombAgent = BombsResource.agentRef.PostAndAsyncReply(fun ch -> BombsResource.Lookup(bombId, ch))
           printfn "Got bomb id."
           let bombResourceUrl = sprintf "http://localhost:8083/bombs/%d" bombId
-          let urlWithQuery = bombResourceUrl |> toUri |> withQueryString ("agent=" + "black") |> uri2str
+          let urlWithQuery = bombResourceUrl |> toUri |> withQueryString ("agent=" + clr) |> uri2str
           let doc = getRoom ctx
           let s = doc |> Json.serialize |> Json.format
           Successful.CREATED s >=> Writers.addHeader "location" urlWithQuery |> replyChannel.Reply
