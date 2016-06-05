@@ -4,6 +4,7 @@ open System
 open Chiron
 open Suave
 open Siren
+open Utils
 
 type RoomInfo = 
   { name : string
@@ -43,5 +44,6 @@ let getRoomWithActions1 (req : HttpRequest) (props : SirenProperties) (self : st
       links = links }
   doc
 
-let getRoomWithActions (req : HttpRequest) (roomInfo : RoomInfo) = 
-  getRoomWithActions1 req roomInfo.properties roomInfo.name roomInfo.linkInfos
+let getRoomWithActions (req : HttpRequest) (clr : AgentColor) (roomInfo : RoomInfo) = 
+  let linkInfos = ("agents/" + clr, ["me"]) :: roomInfo.linkInfos
+  getRoomWithActions1 req roomInfo.properties roomInfo.name linkInfos

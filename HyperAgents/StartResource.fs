@@ -43,14 +43,14 @@ let get ctx includeBlack includeWhite =
 
 let r = new System.Random()
 
-let getRandomStartLocation : string =
+let getRandomStartLocation() : string =
   let locations = [ "control-room"; "office"; "laboratory"; "teleport-room"; "exit-room" ]
   let roomIndex = r.Next(List.length locations)
   locations.Item roomIndex |> linkTo
 
 let start (agent : Color) =
   let qs = sprintf "agent=%s" agent
-  let loc = getRandomStartLocation |> toUri |> withQueryString qs
+  let loc = getRandomStartLocation() |> toUri |> withQueryString qs
   Started (loc, agent)
 
 let startPlayer ctx =

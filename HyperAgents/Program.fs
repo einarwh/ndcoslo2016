@@ -13,14 +13,19 @@ let startPart : WebPart =
       return! result ctx
     }
     
-let roomWithAgent (agent : Agent<TrappableRoomResource.RoomMessage>) : WebPart =
+let roomWithAgent (roomAgent : Agent<TrappableRoomResource.RoomMessage>) : WebPart =
   fun (ctx : HttpContext) ->
     let agentColor = ctx.request.queryParam "agent"
     async {
       match agentColor with 
       | Choice1Of2 clr ->
-        let! result = agent.PostAndAsyncReply(fun ch -> ((ctx, clr), ch))
-        return! result ctx
+        let! maybeAgent = AgentsResource.agentRef.PostAndAsyncReply(fun ch -> AgentsResource.Lookup(clr, ch))
+        match maybeAgent with
+        | None ->
+          return! RequestErrors.BAD_REQUEST (sprintf "no such agent %s" clr) ctx
+        | Some agentAgent ->
+          let! result = roomAgent.PostAndAsyncReply(fun ch -> ((ctx, clr, agentAgent), ch))
+          return! result ctx
       | Choice2Of2 x ->
         return! RequestErrors.BAD_REQUEST x ctx 
     }    
@@ -29,16 +34,7 @@ let controlRoomPart : WebPart =
   roomWithAgent ControlRoomResource.agentRef
 
 let officePart : WebPart =
-  fun (ctx : HttpContext) ->
-    let agentColor = ctx.request.queryParam "agent"
-    async {
-      match agentColor with 
-      | Choice1Of2 clr ->
-        let! result = OfficeResource.agentRef.PostAndAsyncReply(fun ch -> OfficeResource.WebMessage ((ctx, clr), ch))
-        return! result ctx
-      | Choice2Of2 x ->
-        return! RequestErrors.BAD_REQUEST x ctx 
-    }    
+  roomWithAgent OfficeResource.agentRef
 
 let teleportRoomPart : WebPart =
   roomWithAgent TeleportRoomResource.agentRef
@@ -64,22 +60,32 @@ let agentsPart : WebPart =
         | None ->
           return! RequestErrors.NOT_FOUND "no" <|ctx
         | Some agent ->
-          let! result = agent.PostAndAsyncReply(fun ch -> AgentResource.WebMessage(ctx, ch))
+          let! result = agent.PostAndAsyncReply(fun ch -> AgentResource.WebMessage((ctx, agentColor), ch))
           return! result ctx
       | Choice2Of2 x ->
         return! RequestErrors.BAD_REQUEST x <| ctx 
     }
 
-let agentPart agentColor : WebPart = 
+let agentPart agentResourceColor : WebPart = 
   fun (ctx : HttpContext) ->
+    let requestingAgentColor = ctx.request.queryParam "agent"
     async {
-      let! maybeAgent = AgentsResource.agentRef.PostAndAsyncReply(fun ch -> AgentsResource.Lookup (agentColor, ch))
-      match maybeAgent with 
-      | None ->
-        return! RequestErrors.NOT_FOUND "no" <|ctx
-      | Some agent ->
-        let! result = agent.PostAndAsyncReply(fun ch -> AgentResource.WebMessage(ctx, ch))
-        return! result ctx
+      match requestingAgentColor with 
+      | Choice1Of2 clr ->
+        let! maybeRequestingAgent = AgentsResource.agentRef.PostAndAsyncReply(fun ch -> AgentsResource.Lookup(clr, ch))
+        match maybeRequestingAgent with
+        | None ->
+          return! RequestErrors.BAD_REQUEST (sprintf "no such agent %s" clr) ctx
+        | Some requestingAgentAgent ->
+          let! maybeAgentResource = AgentsResource.agentRef.PostAndAsyncReply(fun ch -> AgentsResource.Lookup(agentResourceColor, ch))
+          match maybeAgentResource with 
+          | None ->
+            return! RequestErrors.NOT_FOUND (sprintf "no such agent %s" agentResourceColor) <|ctx
+          | Some agentResource ->
+            let! result = agentResource.PostAndAsyncReply(fun ch -> AgentResource.WebMessage((ctx, clr), ch))
+            return! result ctx
+      | Choice2Of2 x ->
+        return! RequestErrors.BAD_REQUEST x ctx 
     }
 
 let bombPart (bombId : int) : WebPart =
@@ -155,10 +161,10 @@ let app =
             >=> exitRoomPart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ] 
-    pathScan "/agents/%s" (fun agentColor ->
+    pathScan "/agents/%s" (fun agentResourceColor ->
       choose [
         GET >=> setMimeTypeSiren 
-            >=> agentPart agentColor
+            >=> agentPart agentResourceColor
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ]) 
     path "/agents" >=> 

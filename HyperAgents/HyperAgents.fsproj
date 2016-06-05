@@ -58,6 +58,7 @@
     <Compile Include="TrappableRoomResource.fs" />
     <Compile Include="LaboratoryResource.fs" />
     <Compile Include="OfficeResource.fs" />
+    <Compile Include="OldOfficeResource.fs" />
     <Compile Include="ControlRoomResource.fs" />
     <Compile Include="TeleportRoomResource.fs" />
     <Compile Include="ExitRoomResource.fs" />

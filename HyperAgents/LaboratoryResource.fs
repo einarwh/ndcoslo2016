@@ -1,15 +1,6 @@
 ﻿module LaboratoryResource
 
-open Suave
-open Suave.Filters
-open Suave.Operators
-open Suave.Successful
-
-open Chiron
-
 open Utils
-open Siren
-
 
 let roomInfo : RoomResourceUtils.RoomInfo = 
   { name = "laboratory"
