@@ -5,7 +5,12 @@ open Chiron
 open Suave
 open Siren
 
-let getRoomWithActions (req : HttpRequest) (props : SirenProperties) (self : string) (linkInfos : (string * string list) list) = 
+type RoomInfo = 
+  { name : string
+    properties : SirenProperties
+    linkInfos : (string * string list) list }
+
+let getRoomWithActions1 (req : HttpRequest) (props : SirenProperties) (self : string) (linkInfos : (string * string list) list) = 
   let qp url = url + "?" + req.rawQuery 
   let links = 
     (self |> qp |> selfLinkTo) :: (linkInfos |> List.map (fun (name, rels) -> name |> qp |> sirenLinkTo rels))
@@ -37,3 +42,6 @@ let getRoomWithActions (req : HttpRequest) (props : SirenProperties) (self : str
       actions = plantBombActions
       links = links }
   doc
+
+let getRoomWithActions (req : HttpRequest) (roomInfo : RoomInfo) = 
+  getRoomWithActions1 req roomInfo.properties roomInfo.name roomInfo.linkInfos

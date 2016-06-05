@@ -18,7 +18,8 @@ type Message =
   | SecretFileNotification
   | ExplodingBombNotification
 
-let getAlive agentColor maybeReferrer = 
+let getAlive (agentColor : string) maybeReferrer =
+  printfn "get alive representation of the %s agent" agentColor
   let links = 
     match maybeReferrer with
     | None -> []
@@ -32,17 +33,20 @@ let getAlive agentColor maybeReferrer =
 let createAgent (color : string) (location : Uri) = 
   System.Console.WriteLine("Create agent: " + color)
   Agent<Message>.Start (fun inbox ->
-  let rec alive (color : string) (location : Uri) = async {
+  let rec alive (location : Uri) = async {
     System.Console.WriteLine("requested agent")
     let! msg = inbox.Receive()
+    printfn "Agent %s got a message" color
     match msg with
     | LocationUpdate loc ->
-      return! alive color loc
+      printfn "Location update for agent %s: %s" color <| loc.ToString()
+      return! alive loc
     | SecretFileNotification ->
-      return! files color location
+      return! files location
     | ExplodingBombNotification ->
-      return! dead color location
+      return! dead location
     | WebMessage (ctx, replyChannel) ->
+      printfn "Agent %s got a web message." color
       let webPart = 
         match ctx.request.``method`` with
         | HttpMethod.GET ->
@@ -55,18 +59,18 @@ let createAgent (color : string) (location : Uri) =
         | _ ->
           RequestErrors.METHOD_NOT_ALLOWED "no"
       webPart |> replyChannel.Reply
-      return! alive color location }
+      return! alive location }
   
-  and files color location = async {
+  and files location = async {
     let! msg = inbox.Receive()
     match msg with
     | LocationUpdate loc ->
-      return! files color loc
+      return! files loc
     | SecretFileNotification ->
       System.Console.WriteLine("Logic error: SecretFileNotification while having the secret files.")
-      return! files color location
+      return! files location
     | ExplodingBombNotification ->
-      return! dead color location
+      return! dead location
     | WebMessage (ctx, replyChannel) ->
       let webPart = 
         match ctx.request.``method`` with
@@ -75,20 +79,20 @@ let createAgent (color : string) (location : Uri) =
         | _ ->
           RequestErrors.METHOD_NOT_ALLOWED "no"
       webPart |> replyChannel.Reply
-      return! files color location }
+      return! files location }
 
-  and dead color location = async {
+  and dead location = async {
     let! msg = inbox.Receive()
     match msg with
     | LocationUpdate loc ->
       System.Console.WriteLine("Logic error: LocationUpdate while dead.")
-      return! dead color loc
+      return! dead loc
     | SecretFileNotification ->
       System.Console.WriteLine("Logic error: SecretFileNotification while dead.")
-      return! files color location
+      return! files location
     | ExplodingBombNotification ->
       System.Console.WriteLine("Logic error: ExplodingBombNotification while dead.")
-      return! dead color location
+      return! dead location
     | WebMessage (ctx, replyChannel) ->
       let webPart = 
         match ctx.request.``method`` with
@@ -97,7 +101,7 @@ let createAgent (color : string) (location : Uri) =
         | _ ->
           RequestErrors.METHOD_NOT_ALLOWED "no"
       webPart |> replyChannel.Reply
-      return! dead color location }
+      return! dead location }
 
-  alive color location
+  alive location
 )

@@ -53,13 +53,14 @@
     <Compile Include="BombResource.fs" />
     <Compile Include="BombsResource.fs" />
     <Compile Include="RoomResourceUtils.fs" />
+    <Compile Include="AgentResource.fs" />
+    <Compile Include="AgentsResource.fs" />
+    <Compile Include="TrappableRoomResource.fs" />
     <Compile Include="LaboratoryResource.fs" />
     <Compile Include="OfficeResource.fs" />
     <Compile Include="ControlRoomResource.fs" />
     <Compile Include="TeleportRoomResource.fs" />
     <Compile Include="ExitRoomResource.fs" />
-    <Compile Include="AgentResource.fs" />
-    <Compile Include="AgentsResource.fs" />
     <Compile Include="StartResource.fs" />
     <Compile Include="UploadResource.fs" />
     <Compile Include="Program.fs" />

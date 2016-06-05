@@ -4,25 +4,29 @@ open Suave.Operators
 open Suave.Successful
 
 open Siren
+open Utils
 
 let startPart : WebPart =
   fun (ctx : HttpContext) ->
     async {
       let! result = StartResource.agentRef.PostAndAsyncReply(fun ch -> (ctx, ch))
       return! result ctx
-    }    
-
-let controlRoomPart : WebPart =
+    }
+    
+let roomWithAgent (agent : Agent<TrappableRoomResource.RoomMessage>) : WebPart =
   fun (ctx : HttpContext) ->
     let agentColor = ctx.request.queryParam "agent"
     async {
       match agentColor with 
       | Choice1Of2 clr ->
-        let! result = ControlRoomResource.agentRef.PostAndAsyncReply(fun ch -> ControlRoomResource.WebMessage ((ctx, clr), ch))
+        let! result = agent.PostAndAsyncReply(fun ch -> ((ctx, clr), ch))
         return! result ctx
       | Choice2Of2 x ->
         return! RequestErrors.BAD_REQUEST x ctx 
     }    
+
+let controlRoomPart : WebPart =
+  roomWithAgent ControlRoomResource.agentRef
 
 let officePart : WebPart =
   fun (ctx : HttpContext) ->
@@ -36,36 +40,11 @@ let officePart : WebPart =
         return! RequestErrors.BAD_REQUEST x ctx 
     }    
 
-let room (postToAgent : HttpContext -> Async<WebPart>) : WebPart = 
-  fun (ctx : HttpContext) ->
-    let agentColor = ctx.request.queryParam "agent"
-    async {
-      match agentColor with 
-      | Choice1Of2 clr ->
-        let! result = postToAgent ctx
-        return! result ctx
-      | Choice2Of2 x ->
-        return! RequestErrors.BAD_REQUEST x ctx 
-    }    
-
 let teleportRoomPart : WebPart =
-  fun (ctx : HttpContext) ->
-    let agentColor = ctx.request.queryParam "agent"
-    async {
-      match agentColor with 
-      | Choice1Of2 clr ->
-        let! result = TeleportRoomResource.agentRef.PostAndAsyncReply(fun ch -> TeleportRoomResource.WebMessage (ctx, ch))
-        return! result ctx
-      | Choice2Of2 x ->
-        return! RequestErrors.BAD_REQUEST x ctx 
-    }    
+  roomWithAgent TeleportRoomResource.agentRef
 
 let laboratoryPart : WebPart =
-  fun (ctx : HttpContext) ->
-    async {
-      let! result = LaboratoryResource.agentRef.PostAndAsyncReply(fun ch -> LaboratoryResource.WebMessage (ctx, ch))
-      return! result ctx
-    }    
+  roomWithAgent LaboratoryResource.agentRef
 
 let exitRoomPart : WebPart =
   fun (ctx : HttpContext) ->
@@ -91,7 +70,19 @@ let agentsPart : WebPart =
         return! RequestErrors.BAD_REQUEST x <| ctx 
     }
 
-let newBombPart (bombId : int) : WebPart =
+let agentPart agentColor : WebPart = 
+  fun (ctx : HttpContext) ->
+    async {
+      let! maybeAgent = AgentsResource.agentRef.PostAndAsyncReply(fun ch -> AgentsResource.Lookup (agentColor, ch))
+      match maybeAgent with 
+      | None ->
+        return! RequestErrors.NOT_FOUND "no" <|ctx
+      | Some agent ->
+        let! result = agent.PostAndAsyncReply(fun ch -> AgentResource.WebMessage(ctx, ch))
+        return! result ctx
+    }
+
+let bombPart (bombId : int) : WebPart =
   fun (ctx : HttpContext) ->
     async {
       printfn "Lookup bomb #%d" bombId
@@ -104,60 +95,75 @@ let newBombPart (bombId : int) : WebPart =
         return! result ctx
     }
 
+let setMimeTypeSiren = 
+  Writers.setMimeType "application/vnd.siren+json"
+
 let app =
   choose [ 
     pathScan "/bombs/%d" (fun bombId ->
       choose [
-        GET >=> Writers.setMimeType "application/vnd.siren+jsopatn" 
-            >=> newBombPart bombId
-        POST >=> Writers.setMimeType "application/vnd.siren+json" 
-            >=> newBombPart bombId
+        GET >=> setMimeTypeSiren 
+            >=> bombPart bombId
+        POST >=> setMimeTypeSiren 
+            >=> bombPart bombId
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ]
     )
     path "/start" >=> 
       choose [ 
-        GET >=> Writers.setMimeType "application/vnd.siren+json" 
+        GET >=> setMimeTypeSiren 
             >=> startPart
-        POST >=> Writers.setMimeType "application/vnd.siren+json" 
+        POST >=> setMimeTypeSiren 
             >=> startPart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ] 
     path "/control-room" >=> 
       choose [ 
-        GET >=> Writers.setMimeType "application/vnd.siren+json" 
+        GET >=> setMimeTypeSiren 
             >=> controlRoomPart
+        POST >=> setMimeTypeSiren 
+             >=> controlRoomPart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ] 
     path "/office" >=> 
       choose [ 
-        GET >=> Writers.setMimeType "application/vnd.siren+json" 
+        GET >=> setMimeTypeSiren 
             >=> officePart
-        POST >=> Writers.setMimeType "application/vnd.siren+json" 
+        POST >=> setMimeTypeSiren 
             >=> officePart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ] 
     path "/teleport-room" >=> 
       choose [ 
-        GET >=> Writers.setMimeType "application/vnd.siren+json" 
+        GET >=> setMimeTypeSiren 
             >=> teleportRoomPart
+        POST >=> setMimeTypeSiren 
+             >=> teleportRoomPart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ] 
     path "/laboratory" >=> 
       choose [ 
-        GET >=> Writers.setMimeType "application/vnd.siren+json" 
+        GET >=> setMimeTypeSiren 
             >=> laboratoryPart
+        POST >=> setMimeTypeSiren 
+             >=> laboratoryPart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ] 
     path "/exit-room" >=> 
       choose [ 
-        GET >=> Writers.setMimeType "application/vnd.siren+json" 
+        GET >=> setMimeTypeSiren 
             >=> exitRoomPart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ] 
+    pathScan "/agents/%s" (fun agentColor ->
+      choose [
+        GET >=> setMimeTypeSiren 
+            >=> agentPart agentColor
+        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+      ]) 
     path "/agents" >=> 
       choose [ 
-        GET >=> Writers.setMimeType "application/vnd.siren+json" 
+        GET >=> setMimeTypeSiren 
             >=> agentsPart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ] 

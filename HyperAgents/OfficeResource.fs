@@ -19,14 +19,15 @@ type RequestInfo = HttpContext * AgentColor
 type Message = WebMessage of RequestInfo * AsyncReplyChannel<WebPart> | DisarmNotification of string
 type TrappedResult = SafeEntry of SirenDocument | TriggeredBomb of (int * Uri)
 
-let getRoom (ctx : HttpContext) : SirenDocument =
+let getRoom (ctx : HttpContext) (clr : AgentColor) : SirenDocument =
   let props = 
     { title = "The Office."
       description = "You're in an office." }
   let linkInfos =
     [ ("laboratory", ["entrance"; "move"]) 
-      ("control-room", ["entrance"; "move"]) ]
-  let doc = RoomResourceUtils.getRoomWithActions ctx.request props "office" linkInfos
+      ("control-room", ["entrance"; "move"])
+      ("agents/" + clr, ["me"]) ]
+  let doc = RoomResourceUtils.getRoomWithActions1 ctx.request props "office" linkInfos
   doc
 
 let getTrapped (bombs : BombInfo list) (ctx : HttpContext) (clr : AgentColor): TrappedResult = 
@@ -34,13 +35,13 @@ let getTrapped (bombs : BombInfo list) (ctx : HttpContext) (clr : AgentColor): T
   | Choice1Of2 ref ->
     match bombs |> List.tryFind (fun { id = id; referrer = referrer; agent = agent } -> ref.StartsWith(referrer)) with
     | None ->
-      getRoom ctx |> SafeEntry
+      getRoom ctx clr |> SafeEntry
     | Some { id = id; referrer = referrer; agent = agent } ->
       let bombResourceUrl = sprintf "http://localhost:8083/bombs/%d?agent=%s" id clr
       let bomb = bombResourceUrl |> toUri 
       TriggeredBomb (id, bombResourceUrl |> toUri)
   | _ ->
-    getRoom ctx |> SafeEntry
+    getRoom ctx clr |> SafeEntry
     
 let agentRef = Agent<Message>.Start (fun inbox ->
 
@@ -54,6 +55,13 @@ let agentRef = Agent<Message>.Start (fun inbox ->
       printfn "disarm notification!!!"
       return! bombs |> loop
     | WebMessage ((ctx, clr), replyChannel) ->
+      let! maybeAgent = AgentsResource.agentRef.PostAndAsyncReply(fun ch -> AgentsResource.Lookup(clr, ch))
+      match maybeAgent with
+      | None ->
+        printfn "no agent?"
+      | Some agent ->
+        printfn "got an agent, yes."      
+        agent.Post(AgentResource.LocationUpdate(ctx.request.url |> withoutQueryString))
       printfn "office-qp: %s" ctx.request.rawQuery
       printfn "current bomb count: %d" <| List.length bombs 
       let something = bombs |> List.map (fun {id = id; referrer = referrer; agent = agent} ->  
@@ -90,7 +98,7 @@ let agentRef = Agent<Message>.Start (fun inbox ->
           printfn "Got bomb id."
           let bombResourceUrl = sprintf "http://localhost:8083/bombs/%d" bombId
           let urlWithQuery = bombResourceUrl |> toUri |> withQueryString ("agent=" + clr) |> uri2str
-          let doc = getRoom ctx
+          let doc = getRoom ctx clr
           let s = doc |> Json.serialize |> Json.format
           Successful.CREATED s >=> Writers.addHeader "location" urlWithQuery |> replyChannel.Reply
           let bomb = { id = bombId; referrer = ref; agent = bombAgent.Value }

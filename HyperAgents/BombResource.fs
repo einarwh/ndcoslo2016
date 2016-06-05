@@ -90,12 +90,13 @@ let getTriggered (ctx : HttpContext) =
       links = [] }
   doc
 
-let createAgent referrer target = 
-  System.Console.WriteLine("Create bomb agent")
+let createAgent referrer target =
+  printfn "create bomb agent %s -> %s" referrer target 
   Agent<Message>.Start (fun inbox ->
   let rec ready() = async {
+    printfn "bomb is ready and waiting for a message..."
     let! msg = inbox.Receive()
-    System.Console.WriteLine("bomb is ready")
+    printfn "bomb got a message."
     match msg with
     | AliveQuery replyChannel ->
       true |> replyChannel.Reply
@@ -103,6 +104,7 @@ let createAgent referrer target =
     | TriggerNotification ->
       return! triggered()
     | WebMessage (ctx, replyChannel) ->
+      printfn "bomb got web message..."
       let webPart = 
         match ctx.request.``method`` with
         | HttpMethod.GET ->

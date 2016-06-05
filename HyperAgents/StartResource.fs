@@ -10,7 +10,6 @@ open Chiron
 open Utils
 open Siren
 
-type Agent<'T> = MailboxProcessor<'T>
 type RequestInfo = HttpContext
 type ResponseInfo =
       | Success of SirenDocument
