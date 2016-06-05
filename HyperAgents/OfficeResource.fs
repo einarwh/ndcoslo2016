@@ -3,14 +3,13 @@
 open Utils
 
 let roomInfo : RoomResourceUtils.RoomInfo = 
-  { name = "laboratory"
+  { name = "office"
     properties = 
       { title = "The office." 
         description = "You're in an office. There are screens on the walls. You see charts and burndowns. Your old arch-nemesis. Jira." }
     linkInfos = 
       [ ("laboratory", ["entrance"; "move"])
-        ("control-room", ["entrance"; "move"])
-        ("office", ["entrance"; "move"]) ]
+        ("control-room", ["entrance"; "move"]) ]
   }
   
 let agentRef = Agent<TrappableRoomResource.RoomMessage>.Start (fun inbox ->

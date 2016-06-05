@@ -43,10 +43,23 @@ let laboratoryPart : WebPart =
   roomWithAgent LaboratoryResource.agentRef
 
 let exitRoomPart : WebPart =
+  roomWithAgent ExitRoomResource.agentRef
+
+let secretFilePart : WebPart =
   fun (ctx : HttpContext) ->
+    let agentColor = ctx.request.queryParam "agent"
     async {
-      let! result = ExitRoomResource.agentRef.PostAndAsyncReply(fun ch -> ExitRoomResource.WebMessage (ctx, ch))
-      return! result ctx
+      match agentColor with 
+      | Choice1Of2 clr ->
+        let! maybeAgent = AgentsResource.agentRef.PostAndAsyncReply(fun ch -> AgentsResource.Lookup(clr, ch))
+        match maybeAgent with
+        | None ->
+          return! RequestErrors.BAD_REQUEST (sprintf "no such agent %s" clr) ctx
+        | Some agentAgent ->
+          let! result = SecretFileResource.agentRef.PostAndAsyncReply(fun ch -> SecretFileResource.WebMessage((ctx, clr), ch))
+          return! result ctx
+      | Choice2Of2 x ->
+        return! RequestErrors.BAD_REQUEST x ctx 
     }    
 
 let agentsPart : WebPart = 
@@ -173,6 +186,14 @@ let app =
             >=> agentsPart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ] 
+    path "/secret-file" >=> 
+      choose [ 
+        GET >=> setMimeTypeSiren 
+            >=> secretFilePart
+        POST >=> secretFilePart
+        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+      ] 
+    RequestErrors.NOT_FOUND "no such resource"
   ]
 
 startWebServer defaultConfig app

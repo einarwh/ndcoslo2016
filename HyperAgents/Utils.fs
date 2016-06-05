@@ -22,6 +22,24 @@ let withQueryString (qs : string) (uri : Uri) : Uri =
   ub.Query <- qs
   ub.Uri
 
+let withQueryAgent (agent : string) (url : Uri) : Uri = 
+  let qs = sprintf "agent=%s" agent
+  url |> withQueryString qs
+
 let withoutQueryString (url : Uri) : Uri = 
   let s = String.Format("{0}{1}{2}{3}", url.Scheme, Uri.SchemeDelimiter, url.Authority, url.AbsolutePath);
   s |> toUri
+
+let justPath (url : Uri) : string = 
+  url.AbsolutePath
+
+let r = new System.Random()
+
+let getRandomRoom() : string =
+  let locations = [ "control-room"; "office"; "laboratory"; "teleport-room"; "exit-room" ]
+  let roomIndex = r.Next(List.length locations)
+  locations.Item roomIndex
+
+let getRandomStartLocation() : string =
+  getRandomRoom() |> linkTo
+

@@ -50,11 +50,12 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Siren.fs" />
     <Compile Include="HttpUtils.fs" />
+    <Compile Include="AgentResource.fs" />
+    <Compile Include="AgentsResource.fs" />
+    <Compile Include="SecretFileResource.fs" />
     <Compile Include="BombResource.fs" />
     <Compile Include="BombsResource.fs" />
     <Compile Include="RoomResourceUtils.fs" />
-    <Compile Include="AgentResource.fs" />
-    <Compile Include="AgentsResource.fs" />
     <Compile Include="TrappableRoomResource.fs" />
     <Compile Include="LaboratoryResource.fs" />
     <Compile Include="OfficeResource.fs" />

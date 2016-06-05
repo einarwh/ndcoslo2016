@@ -57,7 +57,6 @@ let cutWire ctx target wireColor : CutWireResult =
     getExplosion ctx target |> Explosion 
 
 let attemptDisarm (ctx : HttpContext) (target : string) : DisarmAttemptResult =  
-  System.Console.WriteLine("attemptDisarm")
   match ctx.request.formData "wire" with
   | Choice1Of2 color -> cutWire ctx target color |> Valid
   | Choice2Of2 x -> Invalid
@@ -149,10 +148,25 @@ let createAgent referrer target =
             Successful.OK s |> replyChannel.Reply
             return! gone()
           | Explosion doc ->
-            (* Notify agent of death. *)
-            (* If agent has secret files when s/he dies: drop secret file -> happens in agent *)
-            let s = doc |> Json.serialize |> Json.format
-            Successful.OK s |> replyChannel.Reply
+            (* Notify agent of their death. *)
+            let maybeAffectedAgentColor = ctx.request.queryParam "agent"
+            match maybeAffectedAgentColor with
+            | Choice1Of2 affectedAgentColor ->
+              printfn "Agent %s blew up." affectedAgentColor
+              let! maybeAffectedAgent = AgentsResource.agentRef.PostAndAsyncReply(fun ch -> AgentsResource.Lookup(affectedAgentColor, ch))
+              match maybeAffectedAgent with
+              | None ->
+                printfn "Error: agent %s not found in registry." affectedAgentColor
+              | Some affectedAgent ->
+                affectedAgent.Post(AgentResource.ExplodingBombNotification)
+                (* The agent drops the secret file when they die. *)
+                target |> toUri |> SecretFileResource.Dropped |> SecretFileResource.agentRef.Post
+              (* Redirect to random location. *)
+              let randomLink = Utils.getRandomStartLocation() |> toUri |> withQueryAgent affectedAgentColor |> uri2str
+              Redirection.FOUND randomLink |> replyChannel.Reply         
+            | Choice2Of2 x ->
+              printfn "Error: missing query param agent."
+              RequestErrors.BAD_REQUEST "missing query param agent" |> replyChannel.Reply
             return! gone() 
       | _ ->
         RequestErrors.METHOD_NOT_ALLOWED "no" |> replyChannel.Reply
