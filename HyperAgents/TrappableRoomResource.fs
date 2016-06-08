@@ -57,6 +57,10 @@ let getRoom
   let roomInfo' = roomInfo |> addOtherAgentsIfPresent others |> addSecretFileIfPresent secretFileIsHere
   RoomResourceUtils.getRoomWithActions ctx.request clr roomInfo'
 
+let bombMatch (agentRef : string) (bombRef : string) =
+  let pathOf ref = ref |> toUri |> withoutQueryString |> justPath
+  pathOf agentRef = pathOf bombRef
+ 
 let getTrapped 
      (bombs : BombInfo list) 
      (ctx : HttpContext) 
@@ -66,7 +70,7 @@ let getTrapped
      (secretFileIsHere : bool): TrappedResult = 
   match ctx.request.header "referer" with
   | Choice1Of2 ref ->
-    match bombs |> List.tryFind (fun { id = id; referrer = referrer; agent = agent } -> ref.StartsWith(referrer)) with
+    match bombs |> List.tryFind (fun { id = id; referrer = referrer; agent = agent } -> bombMatch ref referrer) with
     | None ->
       getRoom ctx clr others roomInfo secretFileIsHere |> SafeEntry
     | Some { id = id; referrer = referrer; agent = agent } ->

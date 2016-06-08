@@ -17,6 +17,7 @@ let agentRef = Agent<TrappableRoomResource.RoomMessage>.Start (fun inbox ->
   let rec loop() = async {
     let! (input, replyChannel) = inbox.Receive()
     let! response = trappableRoomAgent.PostAndAsyncReply(fun ch -> (input, ch))
+    (* Ask agent-agent about the secret file? Or ask secret file about agent? *)
     response |> replyChannel.Reply
     return! loop()        
     }

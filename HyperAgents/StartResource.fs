@@ -20,7 +20,7 @@ type Color = string
 
 type StartPlayerResult = Started of Uri * Color | FailedToStart
 
-let getStartPlayerActions includeBlack includeWhite =
+let getStartPlayerActions =
   let agentField = { name = "agent"; ``type`` = "text"; value = None }
 
   let startAgentAction = 
@@ -29,15 +29,13 @@ let getStartPlayerActions includeBlack includeWhite =
       title = "Start agent"
       href = linkTo "start"
       fields = [ agentField ] }
+  [ startAgentAction ]
 
-  let result = [ startAgentAction ]
-  result |> List.filter (fun a -> includeBlack || includeWhite)
-
-let get ctx includeBlack includeWhite =  
+let get ctx =  
   System.Console.WriteLine("get /start")
   let doc = 
     { properties = { title = "Agent vs Agent"; description = "Welcome to the HyperAgents game!" }
-      actions = getStartPlayerActions includeBlack includeWhite
+      actions = getStartPlayerActions
       links = [ selfLinkTo "start" ] }
   doc
 
@@ -68,7 +66,7 @@ let agentRef = Agent<Message>.Start (fun inbox ->
     let (state, webPart) =
       match ctx.request.``method`` with
       | HttpMethod.GET -> 
-        let s = get ctx true true |> Json.serialize |> Json.format
+        let s = get ctx |> Json.serialize |> Json.format
         (start, Successful.OK s)
       | HttpMethod.POST ->
         match startPlayer ctx with

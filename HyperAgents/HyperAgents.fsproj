@@ -49,7 +49,6 @@
   <ItemGroup>
     <Compile Include="Utils.fs" />
     <Compile Include="Siren.fs" />
-    <Compile Include="HttpUtils.fs" />
     <Compile Include="AgentResource.fs" />
     <Compile Include="AgentsResource.fs" />
     <Compile Include="SecretFileResource.fs" />
@@ -59,7 +58,6 @@
     <Compile Include="TrappableRoomResource.fs" />
     <Compile Include="LaboratoryResource.fs" />
     <Compile Include="OfficeResource.fs" />
-    <Compile Include="OldOfficeResource.fs" />
     <Compile Include="ControlRoomResource.fs" />
     <Compile Include="TeleportRoomResource.fs" />
     <Compile Include="ExitRoomResource.fs" />

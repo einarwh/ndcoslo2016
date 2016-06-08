@@ -9,7 +9,7 @@ let roomInfo : RoomResourceUtils.RoomInfo =
         description = "The room you have entered is full of screens, buttons, flashing lights and beeping. Should you press a button? Which one?" }
     linkInfos = 
       [ ("office", ["entrance"; "move"])
-        ("laboratory", ["teleport"; "move"])
+        ("laboratory", ["entrance"; "move"])
         ("exit-room", ["entrance"; "move"]) ]
   }
 
