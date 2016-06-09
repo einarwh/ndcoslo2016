@@ -35,8 +35,6 @@ let getAlive
   (location : Uri) 
   (requestingAgentColor : string)
   (hasSecretFile : bool) =
-  printfn "get alive representation of the %s agent" resourceAgentColor
-  printfn "requested by %s" requestingAgentColor
   let path = location.AbsolutePath.Substring(1)
   let links = 
     match maybeReferrer with
@@ -58,15 +56,12 @@ let getAlive
 let createAgent (resourceAgentColor : string) (location : Uri) = 
   Agent<Message>.Start (fun inbox ->
   let rec alive (location : Uri) = async {
-    printfn "Agent %s is alive!" resourceAgentColor
     let! msg = inbox.Receive()
-    printfn "Agent %s got a message" resourceAgentColor
     match msg with
     | LocationUpdate loc ->
-      printfn "Location update for agent %s: %s" resourceAgentColor <| loc.ToString()
+      printfn "Location update for agent %s: %s" resourceAgentColor (loc |> justPath)
       return! alive loc
     | LocationQuery replyChannel ->
-      printfn "O agent %s where art thou?" resourceAgentColor
       location |> replyChannel.Reply
       return! alive location
     | SecretFileNotification ->
@@ -76,7 +71,6 @@ let createAgent (resourceAgentColor : string) (location : Uri) =
       printfn "Uh oh agent %s just got a notification that a bomb exploded." resourceAgentColor
       return! dead location
     | WebMessage ((ctx, requestingAgentColor), replyChannel) ->
-      printfn "Agent %s got a web message." resourceAgentColor
       let webPart = 
         match ctx.request.``method`` with
         | HttpMethod.GET ->
@@ -97,7 +91,6 @@ let createAgent (resourceAgentColor : string) (location : Uri) =
     | LocationUpdate loc ->
       return! files loc
     | LocationQuery replyChannel ->
-      printfn "O agent %s where art thou?" resourceAgentColor
       location |> replyChannel.Reply
       return! files location
     | SecretFileNotification ->
@@ -122,7 +115,7 @@ let createAgent (resourceAgentColor : string) (location : Uri) =
       return! files location }
 
   and dead location = async {
-    printfn "Agent %s entered the dead state and was immediately resurrected." resourceAgentColor
+    printfn "Agent %s died but was immediately resurrected." resourceAgentColor
     return! alive location }
 
   alive location

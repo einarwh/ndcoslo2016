@@ -20,23 +20,6 @@ let roomInfo : RoomResourceUtils.RoomInfo =
       [ ("control-room", ["entrance"; "move"]) ]
   }
 
-let fooPart foo : (HttpContext -> Async<HttpContext option>) =
-  fun (ctx : HttpContext) ->
-    let content = ctx.response.content
-    let fii = 
-      match content with
-      | Bytes b -> 
-        printfn "Nice, I have bytes."
-        b |> ASCII.toString
-      | _ -> 
-        printfn "It's not bytes tho."
-        "fii"
-        
-    async {
-        printfn "No worries, just return the same stuff."
-        return Some ctx
-    }
-
 let agentRef = Agent<Message>.Start (fun inbox ->
 
   let addPlaneLink (doc : SirenDocument) =
@@ -59,7 +42,7 @@ let agentRef = Agent<Message>.Start (fun inbox ->
         printfn "D'oh the %s agent has the secret file." agentColor
         false
       | SecretFileResource.SecretFileLocation.RoomLocation roomLoc ->
-        printfn "It's not even taken by anyone - no one can leave.."
+        printfn "No one has the secret file - no one can leave."
         false
     let webPart = 
       match res with 

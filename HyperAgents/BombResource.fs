@@ -49,7 +49,7 @@ let getExplosion (ctx : HttpContext) (target : string) : SirenDocument =
         { rel = [ "back" ]; href = target } ] }
 
 let cutWire ctx target wireColor : CutWireResult =
-  System.Console.WriteLine("cutWire -> " + wireColor)
+  printfn "Cutting the %s wire" wireColor
   match wireColor with
   | "red" ->
     getDisarmed ctx target |> Disarmed
@@ -90,12 +90,10 @@ let getTriggered (ctx : HttpContext) =
   doc
 
 let createAgent referrer target =
-  printfn "create bomb agent %s -> %s" referrer target 
   Agent<Message>.Start (fun inbox ->
   let rec ready() = async {
-    printfn "bomb is ready and waiting for a message..."
+    printfn "bomb %s -> %s is ready..." referrer target 
     let! msg = inbox.Receive()
-    printfn "bomb got a message."
     match msg with
     | AliveQuery replyChannel ->
       true |> replyChannel.Reply
@@ -103,7 +101,6 @@ let createAgent referrer target =
     | TriggerNotification ->
       return! triggered()
     | WebMessage (ctx, replyChannel) ->
-      printfn "bomb got web message..."
       let webPart = 
         match ctx.request.``method`` with
         | HttpMethod.GET ->
@@ -117,7 +114,7 @@ let createAgent referrer target =
 
   and triggered() = async {
     let! msg = inbox.Receive()
-    printfn "bomb is triggered!!!"
+    printfn "bomb %s -> %s is triggered!!!" referrer target 
     match msg with
     | AliveQuery replyChannel ->
       false |> replyChannel.Reply
@@ -127,7 +124,6 @@ let createAgent referrer target =
       (* It's OK to trigger a bomb multiple times. *)
       return! triggered()
     | WebMessage (ctx, replyChannel) ->
-      printfn "web message for triggered bomb"
       match ctx.request.``method`` with
       | HttpMethod.GET ->
         let doc = getTriggered ctx
@@ -135,7 +131,6 @@ let createAgent referrer target =
         Successful.OK s |> replyChannel.Reply
         return! triggered()
       | HttpMethod.POST ->
-        printfn "this is an attempt at disarming the bomb."
         match attemptDisarm ctx target with
         | Invalid ->
           RequestErrors.BAD_REQUEST "no" |> replyChannel.Reply
@@ -174,7 +169,7 @@ let createAgent referrer target =
 
   and gone() = async {
     let! msg = inbox.Receive()
-    printfn "bomb is gone!!!"
+    printfn "bomb %s -> %s is gone." referrer target 
     match msg with
     | AliveQuery replyChannel ->
       false |> replyChannel.Reply

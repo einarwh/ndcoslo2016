@@ -32,7 +32,6 @@ let getStartPlayerActions =
   [ startAgentAction ]
 
 let get ctx =  
-  System.Console.WriteLine("get /start")
   let doc = 
     { properties = { title = "Agent vs Agent"; description = "Welcome to the HyperAgents game!" }
       actions = getStartPlayerActions
@@ -52,8 +51,6 @@ let start (agent : Color) =
   Started (loc, agent)
 
 let startPlayer ctx =
-  System.Console.WriteLine ("post /start")
-  System.Console.WriteLine (ctx.request.form)
   match ctx.request.formData "agent" with
   | Choice1Of2 agent -> start agent
   | Choice2Of2 x -> FailedToStart

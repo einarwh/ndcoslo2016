@@ -24,11 +24,8 @@ type Message =
 let agentRef = Agent<Message>.Start (fun inbox ->
   let rec loop (bombs : Map<BombId, Agent<BombResource.Message>>) = async {
     let! msg = inbox.Receive()
-    System.Console.WriteLine("BombsResource got a message")
     match msg with 
     | Lookup (bombId, replyChannel) ->
-      System.Console.WriteLine("Do lookup " + string(bombId))
-      bombs |> Map.toSeq |> printfn "%A"
       bombs.TryFind bombId |> replyChannel.Reply
       return! loop bombs
     | Register (bomb, replyChannel) ->

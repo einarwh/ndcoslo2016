@@ -124,6 +124,9 @@ let planePart : WebPart =
 let setMimeTypeSiren = 
   Writers.setMimeType "application/vnd.siren+json"
 
+let nope = 
+  RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+
 let app =
   choose [ 
     pathScan "/bombs/%d" (fun bombId ->
@@ -132,7 +135,7 @@ let app =
             >=> bombPart bombId
         POST >=> setMimeTypeSiren 
             >=> bombPart bombId
-        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+        nope
       ]
     )
     path "/start" >=> 
@@ -141,7 +144,7 @@ let app =
             >=> startPart
         POST >=> setMimeTypeSiren 
             >=> startPart
-        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+        nope
       ] 
     path "/control-room" >=> 
       choose [ 
@@ -149,7 +152,7 @@ let app =
             >=> controlRoomPart
         POST >=> setMimeTypeSiren 
              >=> controlRoomPart
-        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+        nope
       ] 
     path "/office" >=> 
       choose [ 
@@ -157,7 +160,7 @@ let app =
             >=> officePart
         POST >=> setMimeTypeSiren 
             >=> officePart
-        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+        nope
       ] 
     path "/teleport-room" >=> 
       choose [ 
@@ -165,7 +168,7 @@ let app =
             >=> teleportRoomPart
         POST >=> setMimeTypeSiren 
              >=> teleportRoomPart
-        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+        nope
       ] 
     path "/laboratory" >=> 
       choose [ 
@@ -173,37 +176,37 @@ let app =
             >=> laboratoryPart
         POST >=> setMimeTypeSiren 
              >=> laboratoryPart
-        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+        nope
       ] 
     path "/exit-room" >=> 
       choose [ 
         GET >=> setMimeTypeSiren 
             >=> exitRoomPart
-        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+        nope
       ] 
     pathScan "/agents/%s" (fun agentResourceColor ->
       choose [
         GET >=> setMimeTypeSiren 
             >=> agentPart agentResourceColor
-        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+        nope
       ]) 
     path "/agents" >=> 
       choose [ 
         GET >=> setMimeTypeSiren 
             >=> agentsPart
-        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+        nope
       ] 
     path "/secret-file" >=> 
       choose [ 
         GET >=> setMimeTypeSiren 
             >=> secretFilePart
         POST >=> secretFilePart
-        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+        nope
       ] 
     path "/plane" >=>
       choose [
         GET >=> setMimeTypeSiren >=> planePart
-        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+        nope
       ]
     RequestErrors.NOT_FOUND "no such resource"
   ]

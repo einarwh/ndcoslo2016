@@ -5,10 +5,10 @@ open System
 type Agent<'T> = MailboxProcessor<'T>
 type AgentColor = string
 
-let linkTo relativeUrl = "http://localhost:8083/" + relativeUrl
+let linkTo relativeUrl = "http://127.0.0.1:8083/" + relativeUrl
 
 let link2 (path : string) (query : string) = 
-  let uri = new UriBuilder("http://localhost:8083")
+  let uri = new UriBuilder("http://127.0.0.1:8083")
   uri.Path <- path
   uri.Query <- query.Substring(1)
   uri.ToString()

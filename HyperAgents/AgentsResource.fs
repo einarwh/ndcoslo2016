@@ -18,19 +18,15 @@ type Message =
 
 let agentRef = Agent<Message>.Start (fun inbox ->
   let rec loop (agents : Map<AgentColor, Agent<AgentResource.Message>>) = async {
-    System.Console.WriteLine("AgentsResource got a message")
     let! msg = inbox.Receive()
     match msg with 
     | Lookup (agentColor, replyChannel) ->
-      printfn "Lookup agent %s" agentColor
-      agents |> Map.toSeq |> printfn "%A"
       agents.TryFind agentColor |> replyChannel.Reply
       return! loop agents
     | Register (agentColor, agent) ->
       printfn "Register agent %s" agentColor
       return! loop <| agents.Add(agentColor, agent)
     | ListAgents (url, replyChannel) ->
-      printfn "List agents at %s" <| url.ToString()
       let agentList = agents |> Map.toList
       let temp = agentList |> List.map (fun (color, agentRef) -> agentRef.PostAndAsyncReply(fun ch -> AgentResource.LocationQuery ch))
       let! urlsArray = temp |> Async.Parallel
@@ -39,7 +35,6 @@ let agentRef = Agent<Message>.Start (fun inbox ->
         List.zip agentList urls |> 
         List.filter (fun (tup, u) -> (u.ToString()) = (url.ToString())) |>
         List.map (fun ((clr, a), u) -> clr)
-      printfn "Found %d agents." <| List.length here
       here |> replyChannel.Reply
       return! loop agents
       
