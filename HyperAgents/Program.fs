@@ -13,7 +13,7 @@ let startPart : WebPart =
       return! result ctx
     }
     
-let roomWithAgent (roomAgent : Agent<TrappableRoomResource.RoomMessage>) : WebPart =
+let roomWithAgent (roomAgent : Agent<TrappableRoomWebPartResource.WebPartRoomMessage>) : WebPart =
   fun (ctx : HttpContext) ->
     let agentColor = ctx.request.queryParam "agent"
     async {
@@ -172,6 +172,11 @@ let app =
       choose [ 
         GET >=> setMimeTypeSiren 
             >=> exitRoomPart
+        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+      ] 
+    path "/plane" >=> 
+      choose [ 
+        GET >=> Successful.OK "LOL you won." 
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ] 
     pathScan "/agents/%s" (fun agentResourceColor ->

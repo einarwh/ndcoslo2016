@@ -13,7 +13,16 @@ open RoomResourceUtils
 
 type RoomRequestInfo = HttpContext * AgentColor * Agent<AgentResource.Message>
 
-type RoomMessage = RoomRequestInfo * AsyncReplyChannel<WebPart>
+type ResponseMessage = 
+  | Ok of SirenDocument 
+  | Created of SirenDocument * Uri
+  | Found of Uri
+  | BadRequest of string
+  | MethodNotAllowed of string
+  | InternalError of string
+
+//type RoomMessage = RoomRequestInfo * AsyncReplyChannel<WebPart>
+type RoomMessage = RoomRequestInfo * AsyncReplyChannel<ResponseMessage>
 type TrappedResult = SafeEntry of SirenDocument | TriggeredBomb of (int * Uri)
 
 let addOtherAgentsIfPresent others roomInfo = 
@@ -113,39 +122,37 @@ let createAgent (roomInfo : RoomInfo) =
       | HttpMethod.GET -> 
         match getTrapped activeBombs ctx clr otherAgents roomInfo secretFileIsHere with
         | SafeEntry doc ->
-          let s = doc |> Json.serialize |> Json.format
-          Successful.OK s |> replyChannel.Reply
+          Ok doc |> replyChannel.Reply
           return! loop activeBombs
         | TriggeredBomb (bombId, loc) ->
           let! bomb = BombsResource.agentRef.PostAndAsyncReply(fun ch -> BombsResource.Lookup(bombId, ch))
           match bomb with
           | None ->
-            ServerErrors.INTERNAL_ERROR "Logic messed up: triggered a bomb that doesn't exist." |> replyChannel.Reply
+            let err = "Logic messed up: triggered a bomb that doesn't exist."
+            InternalError err |> replyChannel.Reply
           | Some b ->
             b.Post(BombResource.TriggerNotification)
-            Redirection.FOUND (loc.ToString()) |> replyChannel.Reply
+            Found loc |> replyChannel.Reply
           return! loop activeBombs
       | HttpMethod.POST ->
         match ctx.request.formData "bomb-referrer" with
         | Choice1Of2 ref ->
           (* Must create bomb resource and provide location header *)
-          printfn "Should Register with BombsResource."
           let target = ctx.request.url |> uri2str
           let! bombId = BombsResource.agentRef.PostAndAsyncReply(fun ch -> BombsResource.Register(BombResource.createAgent ref target, ch))
           let! bombAgent = BombsResource.agentRef.PostAndAsyncReply(fun ch -> BombsResource.Lookup(bombId, ch))
           printfn "Got bomb id."
           let bombResourceUrl = sprintf "http://localhost:8083/bombs/%d" bombId
-          let urlWithQuery = bombResourceUrl |> toUri |> withQueryString ("agent=" + clr) |> uri2str
+          let urlWithQuery = bombResourceUrl |> toUri |> withQueryString ("agent=" + clr)
           let doc = getRoom ctx clr otherAgents roomInfo secretFileIsHere
-          let s = doc |> Json.serialize |> Json.format
-          Successful.CREATED s >=> Writers.addHeader "location" urlWithQuery |> replyChannel.Reply
+          Created (doc, urlWithQuery) |> replyChannel.Reply
           let bomb = { id = bombId; referrer = ref; agent = bombAgent.Value }
           return! loop (bomb :: bombs)
         | Choice2Of2 why ->
-          RequestErrors.BAD_REQUEST "no" |> replyChannel.Reply
+          BadRequest why |> replyChannel.Reply
           return! loop bombs
       | _ -> 
-        RequestErrors.METHOD_NOT_ALLOWED "no" |> replyChannel.Reply
+        MethodNotAllowed "no" |> replyChannel.Reply
         return! loop bombs
       return! loop bombs
     }

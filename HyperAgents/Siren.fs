@@ -11,8 +11,8 @@ type SirenField =
   { name: string
     ``type``: string
     value: Json option }
-
-  static member ToJson (x: SirenField) = json {
+ 
+  static member ToJson (x : SirenField) = json {
     if x.value.IsSome then do! Json.write "value" x.value.Value
     do! Json.write "field" x.``type``
     do! Json.write "name" x.name
