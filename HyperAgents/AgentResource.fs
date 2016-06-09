@@ -89,6 +89,7 @@ let createAgent (resourceAgentColor : string) (location : Uri) =
     let! msg = inbox.Receive()
     match msg with
     | LocationUpdate loc ->
+      printfn "Location update for agent %s: %s" resourceAgentColor (loc |> justPath)
       return! files loc
     | LocationQuery replyChannel ->
       location |> replyChannel.Reply

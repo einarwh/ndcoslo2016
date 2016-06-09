@@ -34,6 +34,7 @@ let get ctx clr =
       links = [ selfLinkTo path ] }
   doc
 
+printfn "The secret file can be found in %s" (initialLocation |> justPath) 
 
 let agentRef = Agent<Message>.Start (fun inbox ->
   let rec available (loc : Uri) = async {
