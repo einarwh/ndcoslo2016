@@ -114,6 +114,13 @@ let bombPart (bombId : int) : WebPart =
         return! result ctx
     }
 
+let planePart : WebPart =
+  fun (ctx : HttpContext) ->
+    async {
+      let! result = PlaneResource.agentRef.PostAndAsyncReply(fun ch -> (ctx, ch))
+      return! result ctx
+    }
+
 let setMimeTypeSiren = 
   Writers.setMimeType "application/vnd.siren+json"
 
@@ -174,11 +181,6 @@ let app =
             >=> exitRoomPart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ] 
-    path "/plane" >=> 
-      choose [ 
-        GET >=> Successful.OK "LOL you won." 
-        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
-      ] 
     pathScan "/agents/%s" (fun agentResourceColor ->
       choose [
         GET >=> setMimeTypeSiren 
@@ -198,6 +200,11 @@ let app =
         POST >=> secretFilePart
         RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
       ] 
+    path "/plane" >=>
+      choose [
+        GET >=> setMimeTypeSiren >=> planePart
+        RequestErrors.METHOD_NOT_ALLOWED "I'm afraid I can't let you do that."
+      ]
     RequestErrors.NOT_FOUND "no such resource"
   ]
 

@@ -21,7 +21,6 @@ type ResponseMessage =
   | MethodNotAllowed of string
   | InternalError of string
 
-//type RoomMessage = RoomRequestInfo * AsyncReplyChannel<WebPart>
 type RoomMessage = RoomRequestInfo * AsyncReplyChannel<ResponseMessage>
 type TrappedResult = SafeEntry of SirenDocument | TriggeredBomb of (int * Uri)
 

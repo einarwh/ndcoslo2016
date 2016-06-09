@@ -62,6 +62,7 @@
     <Compile Include="ControlRoomResource.fs" />
     <Compile Include="TeleportRoomResource.fs" />
     <Compile Include="ExitRoomResource.fs" />
+    <Compile Include="PlaneResource.fs" />
     <Compile Include="StartResource.fs" />
     <Compile Include="UploadResource.fs" />
     <Compile Include="Program.fs" />
